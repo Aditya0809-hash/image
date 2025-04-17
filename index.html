@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ink Flow</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      height: 100vh;
+      background: linear-gradient(135deg, #1e90ff, #ff6347, #ff0000, #32cd32);
+      background-size: 400% 400%;
+      animation: gradientBG 10s ease infinite;
+      color: #fff;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+    }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .screen { display: none; }
+    .active-screen { display: block; }
+
+    header {
+      padding: 20px;
+      font-size: 32px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 2px 2px 6px black;
+      margin-top: 50px;
+    }
+
+    .game-container {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .tube {
+      width: 60px;
+      height: 180px;
+      background: #fff;
+      border: 3px solid #ccc;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column-reverse;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .tube:hover { transform: scale(1.05); }
+
+    .ink {
+      height: 25%;
+      width: 100%;
+    }
+
+    .ink-ball {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      box-shadow: 0 0 10px 2px rgba(0, 0, 0, 0.5);
+      animation: ballGlow 2s infinite alternate;
+    }
+
+    @keyframes ballGlow {
+      0% { box-shadow: 0 0 10px 2px rgba(0, 0, 0, 0.5); transform: scale(1); }
+      100% { box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.8); transform: scale(1.1); }
+    }
+
+    .btn {
+      padding: 10px 20px;
+      margin: 10px;
+      border: none;
+      border-radius: 8px;
+      background-color: #ff4e50;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .btn:hover { background-color: #ff1a32; transform: scale(1.1); }
+
+    .instructions {
+      padding: 20px;
+      font-size: 18px;
+      background-color: rgba(0, 0, 0, 0.6);
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Home Screen -->
+  <div class="screen active-screen" id="homeScreen">
+    <header>Ink Flow</header>
+    <button class="btn" onclick="startGame()">Start Game</button>
+    <button class="btn" onclick="showInstructions()">Instructions</button>
+  </div>
+
+  <!-- Instructions Screen -->
+  <div class="screen" id="instructionsScreen">
+    <header>Instructions</header>
+    <div class="instructions">
+      <p>Move ink colors between tubes until each tube has one color. Click one tube, then another to pour. Tubes must have space and accept the top color.</p>
+      <button class="btn" onclick="goBackHome()">Back to Home</button>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div class="screen" id="gameScreen">
+    <header>Ink Flow - Level <span id="levelNumber">1</span></header>
+    <div class="game-container" id="gameContainer"></div>
+    <div>
+      <button class="btn" onclick="showRewardedAd(restartLevel)">Restart (Reward Ad)</button>
+      <button class="btn" onclick="showRewardedAd(showHint)">Hint (Reward Ad)</button>
+    </div>
+  </div>
+
+  <!-- Level Complete Screen -->
+  <div class="screen" id="levelCompleteScreen">
+    <header>🎉 Level <span id="completeLevelNumber">1</span> Complete!</header>
+    <button class="btn" onclick="nextLevel()">Next Level</button>
+  </div>
+
+  <script>
+    const colors = ['red', 'blue', 'green', 'orange'];
+    const maxInk = 4;
+    let tubes = [];
+    let selectedTubeIndex = null;
+    let currentLevel = 1;
+    const maxLevel = 500;
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+      document.getElementById(id).classList.add('active-screen');
+    }
+
+    function startGame() {
+      currentLevel = 1;
+      document.getElementById('levelNumber').textContent = currentLevel;
+      showScreen('gameScreen');
+      generateLevel();
+    }
+
+    function showInstructions() {
+      showScreen('instructionsScreen');
+    }
+
+    function goBackHome() {
+      showScreen('homeScreen');
+    }
+
+    function generateLevel() {
+      tubes = Array.from({ length: 6 }, () => []);
+      selectedTubeIndex = null;
+
+      const inkBalls = colors.flatMap(color => Array(4).fill(color));
+      shuffleArray(inkBalls);
+
+      let ballIndex = 0;
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < maxInk; j++) {
+          tubes[i].push(inkBalls[ballIndex++]);
+        }
+      }
+
+      render();
+    }
+
+    function render() {
+      const container = document.getElementById('gameContainer');
+      container.innerHTML = '';
+
+      tubes.forEach((tube, index) => {
+        const tubeEl = document.createElement('div');
+        tubeEl.className = 'tube';
+        tubeEl.onclick = () => selectTube(index);
+
+        for (let color of tube) {
+          const inkDiv = document.createElement('div');
+          inkDiv.className = 'ink';
+          const ball = document.createElement('div');
+          ball.className = 'ink-ball';
+          ball.style.backgroundColor = color;
+          inkDiv.appendChild(ball);
+          tubeEl.appendChild(inkDiv);
+        }
+
+        container.appendChild(tubeEl);
+      });
+    }
+
+    function selectTube(index) {
+      if (selectedTubeIndex === null) {
+        selectedTubeIndex = index;
+      } else {
+        pourInk(selectedTubeIndex, index);
+        selectedTubeIndex = null;
+      }
+    }
+
+    function pourInk(from, to) {
+      if (from === to) return;
+
+      const source = tubes[from];
+      const target = tubes[to];
+
+      if (!source.length || target.length >= maxInk) return;
+
+      const topColor = source[source.length - 1];
+      let moveStack = [topColor];
+
+      for (let i = source.length - 2; i >= 0; i--) {
+        if (source[i] === topColor) moveStack.push(topColor);
+        else break;
+      }
+
+      if (target.length === 0 || target[target.length - 1] === topColor) {
+        let moveCount = Math.min(moveStack.length, maxInk - target.length);
+        for (let i = 0; i < moveCount; i++) {
+          target.push(source.pop());
+        }
+        render();
+        setTimeout(() => checkLevelComplete(), 300);
+      }
+    }
+
+    function checkLevelComplete() {
+      const allCorrect = tubes.every(tube =>
+        tube.length === 0 || (tube.length === maxInk && tube.every(c => c === tube[0]))
+      );
+
+      if (allCorrect) {
+        document.getElementById('completeLevelNumber').textContent = currentLevel;
+        showScreen('levelCompleteScreen');
+      }
+    }
+
+    function nextLevel() {
+      if (currentLevel < maxLevel) {
+        currentLevel++;
+        document.getElementById('levelNumber').textContent = currentLevel;
+        showScreen('gameScreen');
+        generateLevel();
+      } else {
+        alert("🎉 You finished all levels!");
+        goBackHome();
+      }
+    }
+
+    function restartLevel() {
+      generateLevel();
+    }
+
+    function showHint() {
+      for (let i = 0; i < tubes.length; i++) {
+        for (let j = 0; j < tubes.length; j++) {
+          if (i !== j) {
+            const from = tubes[i];
+            const to = tubes[j];
+            if (from.length && (to.length < maxInk) && (to.length === 0 || from[from.length - 1] === to[to.length - 1])) {
+              alert(`Try moving from Tube ${i + 1} to Tube ${j + 1}`);
+              return;
+            }
+          }
+        }
+      }
+      alert("No hints available right now.");
+    }
+
+    function showRewardedAd(callback) {
+      if (window.Android && Android.showHintRewardAd) {
+        callback(); // Replace with rewarded ad trigger
+      } else {
+        if (confirm("Watch ad to continue?")) {
+          setTimeout(() => {
+            alert("Ad watched! Reward granted.");
+            callback();
+          }, 1000);
+        }
+      }
+    }
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+  </script>
+</body>
+</html>
